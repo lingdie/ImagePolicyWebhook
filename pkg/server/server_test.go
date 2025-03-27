@@ -9,33 +9,40 @@ import (
 
 func TestValidate(t *testing.T) {
 	tests := []struct {
-		name    string
-		images  []string
-		allowed bool
+		name      string
+		namespace string
+		images    []string
+		allowed   bool
 	}{
 		{
-			name:    "deny nginx image",
-			images:  []string{"nginx"},
-			allowed: false,
+			name:      "allow nginx image with namespace",
+			namespace: "ns-admin",
+			images:    []string{"hub.hzh.sealos.run/ns-admin/nginx:1.23.4"},
+			allowed:   true,
 		},
 		{
-			name:    "deny multiple containers",
-			images:  []string{"nginx", "redis", "postgres"},
-			allowed: false,
+			name:      "deny nginx image with wrong namespace",
+			namespace: "ns-admin",
+			images:    []string{"hub.hzh.sealos.run/ns-notadmin/nginx:1.23.4"},
+			allowed:   false,
 		},
 		{
-			name:    "deny empty image name",
-			images:  []string{""},
-			allowed: false,
+			name:      "allow docker.io nginx image",
+			namespace: "ns-admin",
+			images:    []string{"nginx:1.23.4"},
+			allowed:   true,
 		},
 		{
-			name:    "allow nginx image",
-			images:  []string{"nginx:1.23.4"},
-			allowed: true,
+			name:      "deny empty image name",
+			namespace: "ns-admin",
+			images:    []string{""},
+			allowed:   false,
 		},
 	}
 
-	whsvr := &server.WebhookServer{}
+	whsvr := &server.WebhookServer{
+		TargetRegistry: "hub.hzh.sealos.run",
+	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -47,6 +54,7 @@ func TestValidate(t *testing.T) {
 			ir := &imagepolicy.ImageReview{
 				Spec: imagepolicy.ImageReviewSpec{
 					Containers: containers,
+					Namespace:  tt.namespace,
 				},
 			}
 

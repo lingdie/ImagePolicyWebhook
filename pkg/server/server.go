@@ -7,29 +7,69 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/google/go-containerregistry/pkg/name"
+
 	imagepolicy "k8s.io/api/imagepolicy/v1alpha1"
 	"k8s.io/klog/v2"
 )
 
 type WebhookServer struct {
-	Server *http.Server
+	TargetRegistry string
+	Server         *http.Server
 }
 
 func (whsvr *WebhookServer) Validate(ir *imagepolicy.ImageReview) *imagepolicy.ImageReview {
 	return &imagepolicy.ImageReview{
 		Status: imagepolicy.ImageReviewStatus{
-			Allowed: validateImage(ir),
+			Allowed: validateImage(ir, whsvr.TargetRegistry),
 		},
 	}
 }
 
-func validateImage(ir *imagepolicy.ImageReview) bool {
-	// validate image, only allow image without "latest" tag
-	// TODO: edit this function for your own policy logic
+// getImageRepo returns the repository name of the image
+func getImageRepo(image string) (string, error) {
+	ref, err := name.ParseReference(image)
+	if err != nil {
+		klog.Errorf("could not parse image reference: %v", err)
+		return "", err
+	}
+	repo := ref.Context().RepositoryStr()
+	parts := strings.Split(repo, "/")
+	if len(parts) < 2 {
+		return "", fmt.Errorf("invalid repository name: %s", repo)
+	}
+	return parts[0], nil
+}
+
+// getImageRegistry returns the registry name of the image
+func getImageRegistry(image string) (string, error) {
+	ref, err := name.ParseReference(image)
+	if err != nil {
+		klog.Errorf("could not parse image reference: %v", err)
+		return "", err
+	}
+	return ref.Context().RegistryStr(), nil
+}
+
+func validateImage(ir *imagepolicy.ImageReview, targetRegistry string) bool {
+	// check image repository name with image review spec.namespace
 	for _, container := range ir.Spec.Containers {
-		// check if image has "latest" tag or without tag, if so, reject
-		_, tag, found := strings.Cut(container.Image, ":")
-		if !found || tag == "latest" {
+		image := container.Image
+		imageRegistry, err := getImageRegistry(image)
+		if err != nil {
+			klog.Errorf("could not get image registry: %v", err)
+			return false
+		}
+		// if image registry is not target registry, allow it
+		if imageRegistry != targetRegistry {
+			return true
+		}
+		imageRepo, err := getImageRepo(image)
+		if err != nil {
+			klog.Errorf("could not get image repo: %v", err)
+			return false
+		}
+		if imageRepo != ir.Spec.Namespace {
 			return false
 		}
 	}

@@ -3,6 +3,7 @@ module github.com/lingdie/image-policy-webhook
 go 1.23.1
 
 require (
+	github.com/google/go-containerregistry v0.20.3
 	k8s.io/api v0.31.2
 	k8s.io/klog/v2 v2.130.1
 )
@@ -15,6 +16,7 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
+	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	golang.org/x/net v0.26.0 // indirect
 	golang.org/x/text v0.16.0 // indirect
