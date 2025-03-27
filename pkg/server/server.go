@@ -52,6 +52,10 @@ func getImageRegistry(image string) (string, error) {
 }
 
 func validateImage(ir *imagepolicy.ImageReview, targetRegistry string) bool {
+	// if spec namespace is not ns- prefixed, allow it
+	if !strings.HasPrefix(ir.Spec.Namespace, "ns-") {
+		return true
+	}
 	// check image repository name with image review spec.namespace
 	for _, container := range ir.Spec.Containers {
 		image := container.Image
@@ -62,13 +66,18 @@ func validateImage(ir *imagepolicy.ImageReview, targetRegistry string) bool {
 		}
 		// if image registry is not target registry, allow it
 		if imageRegistry != targetRegistry {
-			return true
+			continue
 		}
 		imageRepo, err := getImageRepo(image)
 		if err != nil {
 			klog.Errorf("could not get image repo: %v", err)
 			return false
 		}
+		// if image repo is not ns- prefixed, allow it
+		if !strings.HasPrefix(imageRepo, "ns-") {
+			continue
+		}
+		// if image repo is not equal to spec namespace, deny it
 		if imageRepo != ir.Spec.Namespace {
 			return false
 		}
